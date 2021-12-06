@@ -13,6 +13,10 @@ cache() {
 	done
 }
 
+clear_cache() {
+	rm -rf $CACHE_FILE
+}
+
 check_cache_integrity() {
 	for filename in "$SOUNDS_DIR"/*
 	do
@@ -20,7 +24,7 @@ check_cache_integrity() {
 			0)
 				;;
 			*)
-				rm -rf $CACHE_FILE
+				clear_cache
 				cache
 				break
 				;;
@@ -41,6 +45,11 @@ play_sound() {
 	ffplay -nodisp -autoexit $SONG >/dev/null 2>&1
 }
 
+send_telegram() {
+	SONG=$(grep $1 "$CACHE_FILE" | cut -d ';' -f 1)
+	sudo telegram-send --file $SONG
+}
+
 welcome() {
 	echo "  
 		**********************************************
@@ -59,17 +68,55 @@ help_text() {
 	EOF
 }
 
-show_board() {
-while [ $? -ne 1 ]; do
-
-	if [ -z "$1" ]; then
-		CHOICE=$(retrieve_all_titles | sort | dmenu -l 5 -i | cut -d ':' -f 2)
-	else
-		CHOICE=$(retrieve_titles "$1" | sort | dmenu -l 5 -i | cut -d ':' -f 2)
-	fi
-	[[ ! -z $CHOICE ]] && play_sound $CHOICE
-done
+play_from_board() {
+	while [ $? -ne 1 ]; do
+	
+		if [ -z "$1" ]; then
+			CHOICE=$(retrieve_all_titles | sort | dmenu -l 5 -i | cut -d ':' -f 2)
+		else
+			CHOICE=$(retrieve_titles "$1" | sort | dmenu -l 5 -i | cut -d ':' -f 2)
+		fi
+		[[ ! -z $CHOICE ]] && play_sound $CHOICE
+	done
 }
+
+show_board() {
+	while [ $? -ne 1 ]; do
+	
+		if [ -z "$1" ]; then
+			CHOICE=$(retrieve_all_titles | sort | dmenu -l 5 -i | cut -d ':' -f 2)
+		else
+			CHOICE=$(retrieve_titles "$1" | sort | dmenu -l 5 -i | cut -d ':' -f 2)
+		fi
+		[[ ! -z $CHOICE ]] && send_telegram $CHOICE
+	done
+}
+
+new_sound() {
+	read -p "Select sound with path -> " sound_upload
+
+	read -p "Choose an Artist for the new sound -> " new_artist_in
+
+	default_artist="Unknown"
+	new_artist="${new_artist_in:-$default_artist}"
+
+	read -p "Choose a title for the new sound -> " new_sound_name_in
+
+	default_sound_name=$(basename "$sound_upload" | rev | cut -f 2- -d '.' | rev)
+	new_sound_name="${new_sound_name_in:-$default_sound_name}"
+
+	echo "Adding new sound to board -> $new_artist: $new_sound_name"
+
+	ffmpeg -i "$sound_upload" -metadata artist="$new_artist" -metadata title="$new_sound_name" -c:a copy $SOUNDS_DIR/$(($(ls $SOUNDS_DIR | wc -l) + 1)).mp3 >/dev/null 2>&1
+
+	echo "Successfully added :)"
+
+#	clear_cache && cache
+	check_cache_integrity
+}
+
+
+
 
 clear
 
@@ -90,7 +137,7 @@ while getopts ':a:h' OPT; do
 	case $OPT in
 		a)
 			ARTIST="$OPTARG"
-			show_board $ARTIST
+			play_from_board $ARTIST
 			;;
 		h)
 			help_text
@@ -102,15 +149,18 @@ done
 
 
 while [[ $WHATDO != 'exit' ]]; do
-	WHATDO=$(printf "new_sound\nshow_board\nexit" | dmenu -i)
+	WHATDO=$(printf "new_sound\nplay_from_board\nsend_telegram\nexit" | dmenu -i)
 	case $WHATDO in
 		new_sound)
-				read -p "Select sound with path -> " sound_upload
-				echo "Adding new sound to board -> $sound_upload"
+				new_sound
 				;;
-		show_board)
-				show_board
+		play_from_board)
+				play_from_board
+				;;
+		send_telegram)	show_board
 				;;
 	esac
 done
 
+#sudo telegram-send --file sudo telegram-send "message"
+#ffmpeg -ss 30 -t 70 -i inputfile.mp3 -acodec copy outputfile.mp3   starting at 30s add 70seconds 
