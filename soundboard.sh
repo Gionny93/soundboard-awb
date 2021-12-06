@@ -29,11 +29,11 @@ check_cache_integrity() {
 }
 
 retrieve_titles() {
-	grep -i $1 "$CACHE_FILE" | cut -d ';' -f 3
+	grep -i $1 "$CACHE_FILE" | awk -F ";" '{print $2 " : " $3}'
 }
 
 retrieve_all_titles() {
-	cat "$CACHE_FILE" | cut -d ';' -f 3
+	cat "$CACHE_FILE" | awk -F ";" '{print $2 " : " $3}'
 }
 
 play_sound() {
@@ -62,23 +62,16 @@ help_text() {
 show_board() {
 while [ $? -ne 1 ]; do
 
-	if [ -z $ARTIST ]; then
-		CHOICE=$(retrieve_all_titles | dmenu -i)
+	if [ -z "$1" ]; then
+		CHOICE=$(retrieve_all_titles | sort | dmenu -l 5 -i | cut -d ':' -f 2)
 	else
-		CHOICE=$(retrieve_titles "$ARTIST" | dmenu -i)
+		CHOICE=$(retrieve_titles "$1" | sort | dmenu -l 5 -i | cut -d ':' -f 2)
 	fi
-
 	[[ ! -z $CHOICE ]] && play_sound $CHOICE
 done
 }
 
 clear
-
-if [ ! -f "$CACHE_FILE" ]; then
-	cache
-else
-	check_cache_integrity
-fi
 
 
 ######
@@ -87,11 +80,17 @@ fi
 
 welcome
 
-while getopts ':a:n:h' OPT; do 
+if [ ! -f "$CACHE_FILE" ]; then
+	cache
+else
+	check_cache_integrity
+fi
+
+while getopts ':a:h' OPT; do 
 	case $OPT in
 		a)
 			ARTIST="$OPTARG"
-			show_board
+			show_board $ARTIST
 			;;
 		h)
 			help_text
