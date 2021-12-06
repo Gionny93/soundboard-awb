@@ -63,9 +63,9 @@ show_board() {
 while [ $? -ne 1 ]; do
 
 	if [ -z "$1" ]; then
-		CHOICE=$(retrieve_all_titles | sort | dmenu -l 5 -i | cut -d ':' -f 2)
+		CHOICE=$(retrieve_all_titles | sort | dmenu-mac | cut -d ':' -f 2)
 	else
-		CHOICE=$(retrieve_titles "$1" | sort | dmenu -l 5 -i | cut -d ':' -f 2)
+		CHOICE=$(retrieve_titles "$1" | sort | dmenu-mac | cut -d ':' -f 2)
 	fi
 	[[ ! -z $CHOICE ]] && play_sound $CHOICE
 done
@@ -102,7 +102,7 @@ done
 
 
 while [[ $WHATDO != 'exit' ]]; do
-	WHATDO=$(printf "new_sound\nshow_board\nexit" | dmenu -i)
+	WHATDO=$(printf "new_sound\nshow_board\nexit" | dmenu-mac)
 	case $WHATDO in
 		new_sound)
 				read -p "Select sound with path -> " sound_upload
