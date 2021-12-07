@@ -72,9 +72,9 @@ play_from_board() {
 	while [ $? -ne 1 ]; do
 	
 		if [ -z "$1" ]; then
-			CHOICE=$(retrieve_all_titles | sort | dmenu -l 5 -i | cut -d ':' -f 2)
+			CHOICE=$(retrieve_all_titles | sort | dmenu -l 10 -i | cut -d ':' -f 2)
 		else
-			CHOICE=$(retrieve_titles "$1" | sort | dmenu -l 5 -i | cut -d ':' -f 2)
+			CHOICE=$(retrieve_titles "$1" | sort | dmenu -l 10 -i | cut -d ':' -f 2)
 		fi
 		[[ ! -z $CHOICE ]] && play_sound $CHOICE
 	done
@@ -84,9 +84,9 @@ show_board() {
 	while [ $? -ne 1 ]; do
 	
 		if [ -z "$1" ]; then
-			CHOICE=$(retrieve_all_titles | sort | dmenu -l 5 -i | cut -d ':' -f 2)
+			CHOICE=$(retrieve_all_titles | sort | dmenu -l 10 -i | cut -d ':' -f 2)
 		else
-			CHOICE=$(retrieve_titles "$1" | sort | dmenu -l 5 -i | cut -d ':' -f 2)
+			CHOICE=$(retrieve_titles "$1" | sort | dmenu -l 10 -i | cut -d ':' -f 2)
 		fi
 		[[ ! -z $CHOICE ]] && send_telegram $CHOICE
 	done
@@ -111,8 +111,43 @@ new_sound() {
 
 	echo "Successfully added :)"
 
-#	clear_cache && cache
-	check_cache_integrity
+}
+
+clean_dir() {
+	[[ -f "ranges_values.txt" ]] && rm -rf ranges_values.txt
+	[[ -f "temp_file_to_slice.mp3" ]] && rm -rf temp_file_to_slice.mp3
+}
+
+create_sounds_from_file() {
+
+	clean_dir
+
+	[[ -f "ranges_values.txt" ]] && rm -rf ranges_values.txt
+        
+	read -p "Enter filename with path: " file_to_slice
+	    
+	polished_range_in="default"
+	        
+	while  [ "$polished_range_in" != "exit" ]; do
+		read -p "Enter slicing info [starting(seconds),timetoadd(seconds),author,title] es: 30,70,fabi,siamai. Enter to finish: " range_in
+		polished_range_in=${range_in:-"exit"}
+		[[ $polished_range_in != "exit" ]] && echo "$polished_range_in" >> ranges_values.txt
+	done
+
+	check_file=$(basename "$file_to_slice" | rev | cut -f 1 -d '.' | rev)
+
+	[[ ! "$check_file" =~ ^(mp3|wav)$ ]] && echo "Converting to mp3..." && ffmpeg -i "$file_to_slice" temp_file_to_slice.mp3 >/dev/null 2>&1 && file_to_slice="temp_file_to_slice.mp3"
+
+	exec 3<ranges_values.txt
+	while IFS= read -u 3 line; do
+		echo "Reading file $line"
+		starting=$(echo "$line" | cut -d ',' -f 1)
+		time_add=$(echo "$line" | cut -d ',' -f 2)
+		artist_slice=$(echo "$line" | cut -d ',' -f 3)
+		title_slice=$(echo "$line" | cut -d ',' -f 4)
+		ffmpeg -ss "$starting" -t "$time_add" -i "$file_to_slice" -metadata artist="${artist_slice:-"Unknown"}" -metadata title="$title_slice" -acodec copy $SOUNDS_DIR/$(($(ls $SOUNDS_DIR | wc -l) + 1)).mp3 >/dev/null 2>&1
+		echo "Sound created for -> $artist_slice: $title_slice"
+	done
 }
 
 
@@ -149,18 +184,23 @@ done
 
 
 while [[ $WHATDO != 'exit' ]]; do
-	WHATDO=$(printf "new_sound\nplay_from_board\nsend_telegram\nexit" | dmenu -i)
+	WHATDO=$(printf "new_sound\nplay_from_board\nsend_telegram\ncreate_from_file\nexit" | dmenu -i)
 	case $WHATDO in
 		new_sound)
-				new_sound
+				new_sound && check_cache_integrity
 				;;
 		play_from_board)
 				play_from_board
 				;;
-		send_telegram)	show_board
+		send_telegram)	
+				show_board
+				;;
+		create_from_file)
+				create_sounds_from_file && check_cache_integrity
 				;;
 	esac
 done
 
+clean_dir
+
 #sudo telegram-send --file sudo telegram-send "message"
-#ffmpeg -ss 30 -t 70 -i inputfile.mp3 -acodec copy outputfile.mp3   starting at 30s add 70seconds 
