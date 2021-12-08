@@ -41,12 +41,12 @@ retrieve_all_titles() {
 }
 
 play_sound() {
-	SONG=$(grep $1 "$CACHE_FILE" | cut -d ';' -f 1)
+	SONG=$(grep "$1" "$CACHE_FILE" | cut -d ';' -f 1)
 	ffplay -nodisp -autoexit $SONG >/dev/null 2>&1
 }
 
-send_telegram() {
-	SONG=$(grep $1 "$CACHE_FILE" | cut -d ';' -f 1)
+send_sound() {
+	SONG=$(grep "$1" "$CACHE_FILE" | cut -d ';' -f 1)
 	sudo telegram-send --file $SONG
 }
 
@@ -72,23 +72,23 @@ play_from_board() {
 	while [ $? -ne 1 ]; do
 	
 		if [ -z "$1" ]; then
-			CHOICE=$(retrieve_all_titles | sort | dmenu -l 10 -i | cut -d ':' -f 2)
+			CHOICE=$(retrieve_all_titles | sort | dmenu -l 10 -i | cut -d ':' -f 2 | sed 's/  //g')
 		else
-			CHOICE=$(retrieve_titles "$1" | sort | dmenu -l 10 -i | cut -d ':' -f 2)
+			CHOICE=$(retrieve_titles "$1" | sort | dmenu -l 10 -i | cut -d ':' -f 2 | sed 's/  //g')
 		fi
-		[[ ! -z $CHOICE ]] && play_sound $CHOICE
+		[[ ! -z $CHOICE ]] && play_sound "$CHOICE"
 	done
 }
 
-show_board() {
+send_telegram() {
 	while [ $? -ne 1 ]; do
 	
 		if [ -z "$1" ]; then
-			CHOICE=$(retrieve_all_titles | sort | dmenu -l 10 -i | cut -d ':' -f 2)
+			CHOICE=$(retrieve_all_titles | sort | dmenu -l 10 -i | cut -d ':' -f 2 | sed 's/  //g')
 		else
-			CHOICE=$(retrieve_titles "$1" | sort | dmenu -l 10 -i | cut -d ':' -f 2)
+			CHOICE=$(retrieve_titles "$1" | sort | dmenu -l 10 -i | cut -d ':' -f 2 | sed 's/  //g')
 		fi
-		[[ ! -z $CHOICE ]] && send_telegram $CHOICE
+		[[ ! -z $CHOICE ]] && send_sound "$CHOICE"
 	done
 }
 
@@ -140,23 +140,26 @@ create_sounds_from_file() {
 
 		check_file=$(basename "$file_to_slice" | rev | cut -f 1 -d '.' | rev)
 
-		[[ ! "$check_file" =~ ^(mp3|wav)$ ]] && echo "Converting to audio..." && ffmpeg -i "$file_to_slice" temp_file_to_slice.mp3 >/dev/null 2>&1 && file_to_slice="temp_file_to_slice.mp3"
+		[[ ! -z "$file_to_slice" ]] && [[ ! "$check_file" =~ ^(mp3|wav)$ ]] && echo "Converting to audio..." && ffmpeg -i "$file_to_slice" temp_file_to_slice.mp3 >/dev/null 2>&1 && file_to_slice="temp_file_to_slice.mp3"
 	fi
 
-
-	exec 3<ranges_values.txt
-	while IFS= read -u 3 line; do
-#		echo "Reading file $line"
-		starting=$(echo "$line" | cut -d ',' -f 1)
-		time_add=$(echo "$line" | cut -d ',' -f 2)
-		artist_slice=$(echo "$line" | cut -d ',' -f 3)
-		title_slice=$(echo "$line" | cut -d ',' -f 4)
-		counter=1 #counter stays 1 fix, even tho a sounds without a title is bad
-		ffmpeg -ss "$starting" -t "$time_add" -i "$file_to_slice" -metadata artist="${artist_slice:-"Unknown"}" -metadata title="${title_slice:-"unknown_track_$counter"}" -acodec copy $SOUNDS_DIR/$(($(ls $SOUNDS_DIR | wc -l) + 1)).mp3 >/dev/null 2>&1
-		(( counter++ ))
-#		echo "Sound created for -> $artist_slice: $title_slice"
-	done
-	echo "Sounds created"
+	if [ -f ranges_values.txt ]; then
+		exec 3<ranges_values.txt
+		while IFS= read -u 3 line; do
+#			echo "Reading file $line"
+			starting=$(echo "$line" | cut -d ',' -f 1)
+			time_add=$(echo "$line" | cut -d ',' -f 2)
+			artist_slice=$(echo "$line" | cut -d ',' -f 3)
+			title_slice=$(echo "$line" | cut -d ',' -f 4)
+			counter=1 #counter stays 1 fix, even tho a sounds without a title is bad
+			ffmpeg -ss "$starting" -t "$time_add" -i "$file_to_slice" -metadata artist="${artist_slice:-"Unknown"}" -metadata title="${title_slice:-"unknown_track_$counter"}" -acodec copy $SOUNDS_DIR/$(($(ls $SOUNDS_DIR | wc -l) + 1)).mp3 >/dev/null 2>&1
+			(( counter++ ))
+#			echo "Sound created for -> $artist_slice: $title_slice"
+		done
+		echo "Sounds created"
+	else
+		echo "Nothing to add"
+	fi
 }
 
 
@@ -202,7 +205,7 @@ while [[ $WHATDO != 'exit' ]]; do
 				play_from_board
 				;;
 		send_telegram)	
-				show_board
+				send_telegram
 				;;
 		create_from_file)
 				create_sounds_from_file && check_cache_integrity
