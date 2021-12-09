@@ -151,9 +151,9 @@ create_sounds_from_file() {
 			time_add=$(echo "$line" | cut -d ',' -f 2)
 			artist_slice=$(echo "$line" | cut -d ',' -f 3)
 			title_slice=$(echo "$line" | cut -d ',' -f 4)
-			counter=1 #counter stays 1 fix, even tho a sounds without a title is bad
-			ffmpeg -ss "$starting" -t "$time_add" -i "$file_to_slice" -metadata artist="${artist_slice:-"Unknown"}" -metadata title="${title_slice:-"unknown_track_$counter"}" -acodec copy $SOUNDS_DIR/$(($(ls $SOUNDS_DIR | wc -l) + 1)).mp3 >/dev/null 2>&1
-			(( counter++ ))
+#			counter=1 #counter stays 1 fix, even tho a sounds without a title is bad
+			ffmpeg -ss "$starting" -t "$time_add" -i "$file_to_slice" -metadata artist="${artist_slice:-"Unknown"}" -metadata title="${title_slice}" -acodec copy $SOUNDS_DIR/$(($(ls $SOUNDS_DIR | wc -l) + 1)).mp3 >/dev/null 2>&1
+#			(( counter++ ))
 #			echo "Sound created for -> $artist_slice: $title_slice"
 		done
 		echo "Sounds created"
@@ -196,7 +196,7 @@ done
 
 
 while [[ $WHATDO != 'exit' ]]; do
-	WHATDO=$(printf "new_sound\nplay_from_board\nsend_telegram\ncreate_from_file\nexit" | dmenu -i)
+	WHATDO=$(printf "play_from_board\nsend_telegram\nnew_sound\ncreate_from_file\nexit" | dmenu -i)
 	case $WHATDO in
 		new_sound)
 				new_sound && check_cache_integrity
