@@ -4,7 +4,7 @@ SOUNDS_DIR="$(dirname $0)/sounds"
 CACHE_FILE="$(dirname $0)/cache"
 
 cache() {
-	echo "Caching useful shit..."
+	echo "Caching useful stuff..."
 	for filename in "$SOUNDS_DIR"/*
 	do
 		TITLE_CACHE=$(ffprobe "$filename" 2>&1 | awk '{$1=$1};1' | grep 'title' | cut -d ':' -f 2-)
